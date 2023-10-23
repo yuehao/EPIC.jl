@@ -1,4 +1,4 @@
-struct  ParticleType
+struct  ParticleType  # Properties of charged particle
     charge::Float64
     mass::Float64
     atomnum::Float64
@@ -16,3 +16,12 @@ ParticleType(charge, mass)=ParticleType(charge, mass, 1.0)
 const ELECTRON=ParticleType(-1.0, 0.51099895e6)
 const PROTON=ParticleType(1.0, 938.27208816e6)
 const GOLDION=ParticleType(79.0, 931.49410242e6, 197)
+
+struct ps6d # 6D phase space
+    x::Float64
+    px::Float64
+    y::Float64
+    py::Float64
+    z::Float64
+    dp::Float64
+end

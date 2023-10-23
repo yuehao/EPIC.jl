@@ -1,3 +1,5 @@
+abstract type AbstractWakefield <:AbstractElement end
+
 struct LongitudinalRLCWake <: AbstractWakefield
     freq::Float64
     Rshunt::Float64

@@ -1,10 +1,12 @@
-struct TransferMap1D <: AbstractTransferMap
+abstract type AbstractTransferMap <:AbstractElement end
+
+struct TransferMap2D <: AbstractTransferMap
     dim::Int64
     linearmap::SMatrix{2,2,Float64}
     TransferMap1D(mat::AbstractMatrix)=new(2, mat)
 end
 
-function TransferMap1D(o1::Optics1D, o2::Optics1D, phi::Float64)
+function TransferMap1D(o1::optics2D, o2::optics1D, phi::Float64)
     s,c=sincos(phi)
     rotation=@SMatrix [c s; -s c]
     return TransferMap1D(invnormalization(o2)*rotation*normalization(o1))
