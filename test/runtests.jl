@@ -3,7 +3,9 @@ using Test
 using StructArrays
 using BenchmarkTools
 
-pbeam=BunchedBeam(PROTON, 1e11, 250e9,  10000, [4e-6, 1e-6, 1e-1])
+# test bunched beam with IP optics and 6D Gaussian distribution
+
+pbeam=BunchedBeam(PROTON, 1e11, 250e9,  1000000, [4e-6, 1e-6, 1e-1])
 pbeam.emittance
 
 opIP=optics4DUC(4.0,0.0,1.0,0.0)
@@ -11,7 +13,18 @@ mainRF=AccelCavity(197e6, 1e6, 2520.0, 0.0)
 mat=initilize_6DGaussiandist!(pbeam, opIP, mainRF, 1.8e-3)
 
 sqrt(sum(pbeam.dist.dp .* pbeam.dist.dp)/pbeam.num_macro)
-sqrt(sum(pbeam.dist.z .* pbeam.dist.z)/pbeam.num_macro)
+sigz=sqrt(sum(pbeam.dist.z .* pbeam.dist.z)/pbeam.num_macro)
+
+# test Strong Beam setup
+pstbeam=StrongGaussianBeam(PROTON, 1e11, 250e9,  opIP, [4e-6, 1e-6, sigz], 20)
+initilize_zslice!(pstbeam, :gaussian, :evennpar, 100.0)
+pstbeam.zslice_center
+
+
+initilize_zslice!(pstbeam, pbeam.dist.z, :evennpar)
+pstbeam.zslice_npar
+pstbeam.zslice_center
+
 
 using StructArrays
 using BenchmarkTools
