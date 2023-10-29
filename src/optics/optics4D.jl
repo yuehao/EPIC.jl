@@ -1,4 +1,4 @@
-mutable struct optics4DUC <: AbstractOptics # 4D linear transformation uncoupled
+mutable struct optics4DUC <: AbstractOptics4D # 4D linear transformation uncoupled
     optics_x::optics2D
     optics_y::optics2D
 end

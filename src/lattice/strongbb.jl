@@ -30,7 +30,55 @@ struct StrongGaussianBeam <: AbstractStrongBeamBeam  # Strong Beam with transver
     end  
 end
 
+function initilize_zslice!(beam::StrongGaussianBeam, profile::Symbol, slice_type::Symbol, zrange::Float64=5.0)
+    zmin=-zrange*beam.beamsize[3]
+    zmax=zrange*beam.beamsize[3]
+    if profile == :gaussian
+        if slice_type == :evenzsep
+            zedge=collect(range(zmin, stop=zmax, length=beam.nzslice+1))
+            beam.zslice_center=0.5.*(zedge[1:end-1]+zedge[2:end])
+            beam.zslice_npar=exp.(-0.5.*(beam.zslicecenter.^2)./beam.beamsize[3]^2)
+            beam.zslice_npar=beam.zslice./sum(beam.zslice).*beam.num_particle
+        end
+        if slice_type == :evennpar
+            npartedge=collect(range(0.0, stop=1.0, length=beam.nzslice+1))
+            npartcenter=0.5.*(npartedge[1:end-1]+npartedge[2:end])  
+            beam.zslicecenter=(sqrt(2.0)*beam.beamsize[3]).*erfinv.(2.0.*npartcenter.-1.0)
+            beam.zslice_npar=zeros(beam.nzlice).+1.0/beam.nzslice*beam.num_particle
+        end
+    end
 
+    if profile == :uniform
+        zedge=collect(range(zmin, stop=zmax, length=beam.nzslice+1))
+        beam.zslice_center=0.5.*(zedge[1:end-1]+zedge[2:end])
+        beam.zslice_npar=zeros(beam.nzslice).+1.0/beam.nzslice*beam.num_particle
+    end
+    
+end
+
+function initilize_zslice!(beam::StrongGaussianBeam, zlist::Vector{Float64}, slice_type::Symbol)
+    zmin=minimum(zlist)
+    zmax=maximum(zlist)
+    if slice_type == :evenzsep
+        zedge=collect(range(zmin, stop=zmax, length=beam.nzslice+1))
+        beam.zslice_center=0.5.*(zedge[1:end-1]+zedge[2:end])
+        beam.zslice_npar=zeros(beam.nzslice)
+        for i in 1:beam.nzslice
+            beam.zslice_npar[i]=sum((zlist.>=zedge[i]).&(zlist.<zedge[i+1]))
+        end
+        beam.zslice_npar=beam.zslice_npar./sum(beam.zslice_npar).*beam.num_particle
+    end
+    if slice_type == :evennpar
+        sort_zlist=sort(zlist)
+        nzlist=length(sort_zlist)
+        npartedge=Int.(floor.(collect(range(0, nzlist, length=beam.nzslice+1))))
+        beam.zslice_npar=(npartedge[2:end]-npartedge[1:end-1])/nzlist*beam.num_particle
+        beam.zslice_center=zeros(beam.nzslice)
+        for i in 1:beam.nzslice
+            beam.zslice_center[i]=mean(sort_zlist[npartedge[i]+1:npartedge[i+1]])
+        end
+    end
+end
 
 
 function Bassetti_Erskine(x::Float64, y::Float64, σx::Float64, σy::Float64)

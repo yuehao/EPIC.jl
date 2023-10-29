@@ -1,5 +1,5 @@
 
-using StructArrays
+
 
 include("particle.jl")
 
@@ -23,10 +23,11 @@ struct BunchedBeam <: AbstractBeam
         beta=momentum/energy
         new(particle, np, energy,momentum,gamma,beta,nmacro,
             StructArray{ps6d}((randn(nmacro),randn(nmacro),randn(nmacro),randn(nmacro),randn(nmacro),randn(nmacro)))
-            ,emittance, centroid
-            )
+            ,emittance, centroid)
     end
 end
 
 
 include("dist.jl")
+
+

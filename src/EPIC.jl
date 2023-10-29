@@ -1,17 +1,14 @@
 module BBMM
+using StaticArrays
+using StructArrays
 
-abstract type AbstractBeam end
+include("abstypes.jl")
 include("beam/beam.jl")
 
-abstract type AbstractOptics end
-
-
-abstract type AbstractElement end
-abstract type AbstractLattice end
-include("lattice/lattice.jl")
+#include("lattice/lattice.jl")
 include("lattice/elements.jl")
 
-
+include("optics/optics.jl")
 
 
 

@@ -1,4 +1,6 @@
-mutable struct optics2D <: AbstractOptics
+
+
+mutable struct optics2D <: AbstractOptics2D
     beta::Float64
     alpha::Float64
     gamma::Float64
