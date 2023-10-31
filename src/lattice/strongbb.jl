@@ -42,7 +42,7 @@ function initilize_zslice!(beam::StrongGaussianBeam, profile::Symbol, slice_type
             beam.zslice_npar .= exp.(-0.5.*(beam.zslice_center.^2)./beam.beamsize[3]^2)
             beam.zslice_npar .= beam.zslice_npar./sum(beam.zslice_npar).*beam.num_particle
         end
-        if slice_type == :evennpar
+        if slice_type == :evennpar   # Here the zslicecenter is where split the npar in the slice, not the center of zposition
             npartedge=collect(range(0.0, stop=1.0, length=beam.nzslice+1))
             npartcenter=0.5.*(npartedge[1:end-1]+npartedge[2:end])  
             beam.zslice_center .= (sqrt(2.0)*beam.beamsize[3]).*erfinv.(2.0.*npartcenter.-1.0)

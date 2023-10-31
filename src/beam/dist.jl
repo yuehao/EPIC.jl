@@ -9,7 +9,7 @@ function initilize_6DGaussiandist!(beam::BunchedBeam, optics::AbstractOptics4D, 
     # 6D Gaussian distribution
 
     moment_matrix=zeros(6,6)
-
+    ## Better way to do this?  Really messy but works...
     moment_matrix[1,1] = sum(beam.dist.x .* beam.dist.x)/beam.num_macro
     moment_matrix[1,2] = sum(beam.dist.x .* beam.dist.px)/beam.num_macro
     moment_matrix[1,3] = sum(beam.dist.x .* beam.dist.y)/beam.num_macro
