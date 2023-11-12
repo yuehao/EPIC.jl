@@ -78,3 +78,33 @@ function initilize_6DGaussiandist!(beam::BunchedBeam, optics::AbstractOptics4D, 
     
     
 end
+
+
+function histogram1DinZ!(beam::BunchedBeam, nbins::Int64)
+    # histogram in z
+    zhist=zeros(nbins)
+    zhist_edges=zeros(nbins+1)
+    zmax=maximum(beam.dist.z)
+    zmin=minimum(beam.dist.z)
+    zhist_edges .= collect(range(zmin-(zmax-zmin)/nbins, zmax+(zmax-zmin)/nbins, length=nbins+1))
+    zsep=(zhist_edges[end]-zhist_edges[1])/nbins
+    @inbounds for i in 1:beam.num_macro
+        ibin = (beam.dist.z[i] - zhist_edges[1])/zsep  # number of bin from 0
+        dx = round(ibin) - ibin
+        binnum=Int64(floor(ibin)+1)
+        beam.inzindex[i] = binnum 
+        neighbor = binnum + Int64(sign(dx))
+        ratio = (0.5 - abs(dx))/0.5
+        weight_neighbor = 0.5 * ratio^2
+        zhist[binnum] += 1.0 - weight_neighbor
+        zhist[neighbor] += weight_neighbor
+    end
+    return zhist, zhist_edges
+end
+
+
+        
+
+
+
+

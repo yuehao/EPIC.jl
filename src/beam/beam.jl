@@ -13,6 +13,7 @@ struct BunchedBeam <: AbstractBeam
     beta::Float64  # Relativistic beta v/c
     num_macro::Int64 # Number of macro particles
     dist::StructArray{ps6d} # 6D distribution
+    inzindex::Vector{Int64} # in which z slice
     emittance::Vector{Float64} # emittance in x, y, z
     centroid::Vector{Float64} # centroid in x, px, y, py, z, pz
 
@@ -22,8 +23,8 @@ struct BunchedBeam <: AbstractBeam
         gamma=energy/particle.mass
         beta=momentum/energy
         new(particle, np, energy,momentum,gamma,beta,nmacro,
-            StructArray{ps6d}((randn(nmacro),randn(nmacro),randn(nmacro),randn(nmacro),randn(nmacro),randn(nmacro)))
-            ,emittance, centroid)
+            StructArray{ps6d}((randn(nmacro),randn(nmacro),randn(nmacro),randn(nmacro),randn(nmacro),randn(nmacro))),
+            zeros(Int64,nmacro), emittance, centroid)
     end
 end
 
