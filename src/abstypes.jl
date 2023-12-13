@@ -14,6 +14,8 @@ abstract type AbstractWakefield <:AbstractElement end
 abstract type AbstractLongiWakefield <:AbstractWakefield end
 abstract type AbstractTransWakefield <:AbstractWakefield end
 
+abstract type AbstractRadiation <: AbstractElement end
+
 abstract type AbstractTransferMap <:AbstractElement end
 
 abstract type AbstractLattice end

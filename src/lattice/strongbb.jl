@@ -25,7 +25,7 @@ struct StrongGaussianBeam <: AbstractStrongBeamBeam  # Strong Beam with transver
     zslice_center::Vector{Float64} # z center of each slice
     zslice_npar::Vector{Float64} # amplitude of each slice
     function StrongGaussianBeam(particle::ParticleType, np::Float64, energy::Float64, op::AbstractOptics4D, bs::Vector{Float64}, nz::Int)
-        momentum=sqrt(energy*energy-particle.mass*particle.mass)
+        momentum=sqrt(energy*energy-particle.mass*particle.mass)  
         gamma=energy/particle.mass
         beta=momentum/energy
         new(particle,np,energy,momentum,gamma,beta, op, bs, Int64(nz), zeros(nz), zeros(nz))
@@ -89,18 +89,20 @@ function Bassetti_Erskine(x::Float64, y::Float64, σx::Float64, σy::Float64)
 	term2=erfcx(-1im*(x*σy/σx+1im*y*σx/σy)/sqrtδσ2)
 	termexp=exp(-x*x/2/σx/σx-y*y/2/σy/σy)
 	complex_e=-1im*2*sqrt(pi)/sqrtδσ2*(term1-termexp*term2)
-	return real(complex_e), -imag(complex_e)
+	return real(complex_e), -imag(complex_e), termexp
 end
 
-function track(coor6d::AbstractArray, stgb::StrongThinGaussianBeam)
-    sloc=(stgb.zloc .+ coor6d.z)/2.0
-    coor6d.x .+= (coor6d.px .* stgb.zloc)
-    coor6d.y .+= (coor6d.py .* stgb.zloc)
-    ex,ey=Bassetti_Erskine.(coor6d.x.-stgb.xoffset, coor6d.y.-stgb.yoffset, stgb.rmssizex, stgb.rmssizey)
-    coor6d.px .+= stgb.amplitude .* ex
-    coor6d.py .+= stgb.amplitude .* ey
-    coor6d.x .-= (coor6d.px .* stgb.zloc)
-    coor6d.y .-= (coor6d.py .* stgb.zloc)
+function track!(ps6dcoor::AbstractVector{ps6d{T}}, sgb::StrongGaussianBeam) where T
+    sloc=(stgb.zloc .+ ps6dcoor.z)/2.0
+    ps6dcoor.x .+= (ps6dcoor.px .* sloc)
+    ps6dcoor.y .+= (ps6dcoor.py .* sloc)
+    ex,ey=Bassetti_Erskine.(ps6dcoor.x .- stgb.xoffset, ps6dcoor.y .- stgb.yoffset, stgb.rmssizex, stgb.rmssizey)
+    #lumi_particle = exp(-(ps6dcoor.x.-stgb.xoffset).^2/2.0/stgb.rmssizex^2-(ps6dcoor.y.-stgb.yoffset).^2/2.0/stgb.rmssizey^2)
+    ps6dcoor.px .= ps6dcoor.px .+ stgb.amplitude .* ex
+    ps6dcoor.py .= ps6dcoor.py .+ stgb.amplitude .* ey
+    # ps6dcoor.x .-= (ps6dcoor.px .* sloc)
+    # ps6dcoor.y .-= (ps6dcoor.py .* sloc)
+
 end
 
 

@@ -1,4 +1,3 @@
-abstract type AbstractTransferMap <:AbstractElement end
 
 struct TransferMap2D <: AbstractTransferMap
     dim::Int64
@@ -28,16 +27,30 @@ function TransferMap4D(o1::AbstractOptics4D, o2::AbstractOptics4D, phi1::Float64
     r2=@SMatrix [c2 s2; -s2 c2]
     zm=@SMatrix [0.0 0.0; 0.0 0.0]
     rotation=SMatrix{4,4}([r1 zm; zm r2])
-    return TransferMap2D(invnormal_mat(o2)*rotation*normal_mat(o1))
+    return TransferMap4D(invnormal_mat(o2)*rotation*normal_mat(o1))
 end
 
 function TransferMap4D(o1::AbstractOptics4D, phi1::Float64, phi2::Float64)
     return TransferMap4D(o1, o1, phi1, phi2)
 end
 
-#function track(coor6d::AbstractVector, tm::AbstractTransferMap)
-#    coorview=@view coor6d[1:tm.dim]
-#    coorview=tm.linearmap*coorview
-#    return nothing
-#end
+function track!(ps6dcoor::AbstractVector{ps6d{T}}, tm::TransferMap4D) where T
+    newx=tm.linearmap[1,1] .* ps6dcoor.x + tm.linearmap[1,2] .* ps6dcoor.px + tm.linearmap[1,3] .* ps6dcoor.y + tm.linearmap[1,4] .* ps6dcoor.py 
+    newpx=tm.linearmap[2,1] .* ps6dcoor.x + tm.linearmap[2,2] .* ps6dcoor.px + tm.linearmap[2,3] .* ps6dcoor.y + tm.linearmap[2,4] .* ps6dcoor.py
+    newy=tm.linearmap[3,1] .* ps6dcoor.x + tm.linearmap[3,2] .* ps6dcoor.px + tm.linearmap[3,3] .* ps6dcoor.y + tm.linearmap[3,4] .* ps6dcoor.py
+    ps6dcoor.py .= tm.linearmap[4,1] .* ps6dcoor.x + tm.linearmap[4,2] .* ps6dcoor.px + tm.linearmap[4,3] .* ps6dcoor.y + tm.linearmap[4,4] .* ps6dcoor.py
+    ps6dcoor.x .= newx
+    ps6dcoor.px .= newpx
+    ps6dcoor.y .= newy
+    
+end
+
+
+function track!(beam::BunchedBeam, tm::TransferMap4D)
+    @inbounds for i in 1:beam.num_macro
+        beam.dist.x[i], beam.dist.px[i], beam.dist.y[i], beam.dist.py[i] = tm.linearmap * [beam.dist.x[i], beam.dist.px[i], beam.dist.y[i], beam.dist.py[i]]
+    end
+end
+
+
 

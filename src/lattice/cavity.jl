@@ -20,17 +20,29 @@ mutable struct AccelCavity <: AbstractCavity
 end
 
 
+function track!(ps6dcoor::AbstractVector, cc::CrabCavity)
+   sv,cv .= sincos.(cc.k .* ps6dcoor.z .+ cc.ϕ)
+   ps6dcoor.px .+= cc.v .* sv    #px
+   ps6dcoor.dp += cc.v .* ps6dcoor.x .* cv  # delta
+end
 
-#function track(coor6d::AbstractArray, cc::CrabCavity)
-#    s,c=sincos(cc.k*coor6d.z+cc.ϕ)
-#    coor6d.px+= cc.v*s    #px
-#    coor6d.dp+= cc.v*coor6d[1]*c  # delta
-#end
+function track!(ps6dcoor::AbstractVector{ps6d{T}}, ac::AccelCavity, b2E::Float64) where T
+   v_β2E=ac.v/b2E
+   sv = sin.(ac.k .* ps6dcoor.z .+ ac.ϕs) .- sin(ac.ϕs)
+   ps6dcoor.dp .+= v_β2E .* sv   # update delta p
+end
 
-#function track(coor6d::AbstractArray, ac::AccelCavity, β2E::Float64)
-#    ss=sin(ac.k*coor6d.z+ac.ϕs)-sin(ac.ϕs)
-#    coor6d.dp+= ac.v*ss / β2E   # update delta p
-#end
+function track!(beam::AbstractBeam, cc::CrabCavity)
+   s,c=sincos.(cc.k*beam.dist.z+cc.ϕ)
+   beam.dist.px .+= cc.v .* s    #px
+   beam.dist.dp .+= cc.v .* beam.dist.x .* c  # delta
+end
+
+function track!(beam::AbstractBeam, ac::AccelCavity)
+   v_β2E=ac.v/(beam.beta*beam.beta*beam.total_energy)
+   ss=sin.(ac.k .* beam.dist.z .+ ac.ϕs) .- sin(ac.ϕs)
+   beam.dist.dp .+= v_β2E .* ss   # update delta p
+end
 
 
 

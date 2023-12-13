@@ -9,11 +9,17 @@ include("lattice/elements.jl")
 include("optics/optics.jl")
 
 export PROTON, ELECTRON, GOLDION
+export ps6d
 
-export BunchedBeam, initilize_6DGaussiandist!, histogram1DinZ!
+export BunchedBeam
+export get_centroid!,get_2nd_moments!, get_emittance!
+export initilize_6DGaussiandist!, histogram1DinZ!
 
-export StrongGaussianBeam, initilize_zslice!
-export optics4DUC, AccelCavity, LongitudinalRLCWake
+export optics4DUC
+
+export StrongGaussianBeam, StrongThinGaussianBeam, initilize_zslice!, Bassetti_Erskine
+export TransferMap4D, OneTurnRadiation
+export AccelCavity, LongitudinalRLCWake
 
 export track!
 
