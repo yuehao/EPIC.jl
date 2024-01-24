@@ -1,6 +1,7 @@
 abstract type AbstractStrongBeamBeam <:AbstractElement end
 using SpecialFunctions
 using Statistics
+using StaticArrays
 
 struct StrongThinGaussianBeam <: AbstractStrongBeamBeam
     amplitude::Float64
@@ -58,7 +59,7 @@ function initilize_zslice!(beam::StrongGaussianBeam, profile::Symbol, slice_type
     
 end
 
-function initilize_zslice!(beam::StrongGaussianBeam, zlist::Vector{Float64}, slice_type::Symbol)
+function initilize_zslice!(beam::StrongGaussianBeam, zlist::Vector{Float64}, slice_type::Symbol) # Convert from distribution
     zmin=minimum(zlist)
     zmax=maximum(zlist)
     if slice_type == :evenzsep
@@ -83,28 +84,104 @@ function initilize_zslice!(beam::StrongGaussianBeam, zlist::Vector{Float64}, sli
 end
 
 
-function Bassetti_Erskine(x::Float64, y::Float64, σx::Float64, σy::Float64)
+function Bassetti_Erskine_xgty!(res::AbstractVector, x::Float64, y::Float64, σx::Float64, σy::Float64) # x size greater than y
+    # Only positive y is valid for this function
+    # for y<0, Ex = Ex, Ey = -Ey
+    if y < 0.0
+        Bassetti_Erskine_xgty!(res, x, -y, σx, σy)
+        res[2] = -res[2]
+        nothing
+        return
+    end
+    termexp=exp(-x*x/2/σx/σx-y*y/2/σy/σy)
 	sqrtδσ2=sqrt(Complex(2*(σx*σx-σy*σy)))
 	term1=erfcx(-1im*(x+1im*y)/sqrtδσ2)
 	term2=erfcx(-1im*(x*σy/σx+1im*y*σx/σy)/sqrtδσ2)
-	termexp=exp(-x*x/2/σx/σx-y*y/2/σy/σy)
+	
 	complex_e=-1im*2*sqrt(pi)/sqrtδσ2*(term1-termexp*term2)
-	return real(complex_e), -imag(complex_e), termexp
+	res[1]=real(complex_e)
+    res[2]=-imag(complex_e)
+    res[3]=termexp/2.0/π/σx/σy
+    nothing
 end
 
-function track!(ps6dcoor::AbstractVector{ps6d{T}}, sgb::StrongGaussianBeam) where T
-    sloc=(stgb.zloc .+ ps6dcoor.z)/2.0
-    ps6dcoor.x .+= (ps6dcoor.px .* sloc)
-    ps6dcoor.y .+= (ps6dcoor.py .* sloc)
-    ex,ey=Bassetti_Erskine.(ps6dcoor.x .- stgb.xoffset, ps6dcoor.y .- stgb.yoffset, stgb.rmssizex, stgb.rmssizey)
-    #lumi_particle = exp(-(ps6dcoor.x.-stgb.xoffset).^2/2.0/stgb.rmssizex^2-(ps6dcoor.y.-stgb.yoffset).^2/2.0/stgb.rmssizey^2)
-    ps6dcoor.px .= ps6dcoor.px .+ stgb.amplitude .* ex
-    ps6dcoor.py .= ps6dcoor.py .+ stgb.amplitude .* ey
-    # ps6dcoor.x .-= (ps6dcoor.px .* sloc)
-    # ps6dcoor.y .-= (ps6dcoor.py .* sloc)
+function Bassetti_Erskine_ygtx!(res::AbstractVector, x::Float64, y::Float64, σx::Float64, σy::Float64) # x size greater than y
+    # Only negative x is valid for this function
+    # for x>0, Ex = -Ex, Ey = Ey
+    if x > 0.0
+        Bassetti_Erskine_ygtx!(res, -x, y, σx, σy)
+        res[1] = -res[1]
+        nothing
+        return
+    end
+    termexp=exp(-x*x/2/σx/σx-y*y/2/σy/σy)
+	sqrtδσ2=sqrt(Complex(2*(σx*σx-σy*σy)))
+	term1=erfcx(-1im*(x+1im*y)/sqrtδσ2)
+	term2=erfcx(-1im*(x*σy/σx+1im*y*σx/σy)/sqrtδσ2)
+	
+	complex_e=-1im*2*sqrt(pi)/sqrtδσ2*(term1-termexp*term2)
+    res[1]=real(complex_e)
+    res[2]=-imag(complex_e)
+    res[3]=termexp/2.0/π/σx/σy
+	nothing
+end
+
+function Bassetti_Erskine!(res::AbstractVector, x::Float64, y::Float64, σx::Float64, σy::Float64)
+    if σx > σy
+        Bassetti_Erskine_xgty!(res, x, y, σx, σy)
+        nothing
+        return
+    else
+        Bassetti_Erskine_ygtx!(res, x, y, σx, σy)
+        nothing
+        return
+    end
+end
+
+function track!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5, sgb::StrongGaussianBeam, factor::Float64) where T
+    #factor=wb.particle.classrad0/wb.gamma*wb.particle.charge*sgb.particle.charge
+    
+    lumi=0.0
+    num_macro=length(dist.x)
+    fieldvec = MVector{3,Float64}(0.0, 0.0, 0.0)
+
+    @inbounds for i in 1:sgb.nzslice
+        # temp1: collision zlocation, temp2: beamsize x, temp3: beamsize y, temp4: beta x, temp5: beta y
+        temp1 .= (dist.z .+ sgb.zslice_center[i])./2.0
+        temp4 .= sgb.optics.optics_x.beta .+ sgb.optics.optics_x.gamma .* temp1 .* temp1 .- 2.0 .* sgb.optics.optics_x.alpha .* temp1
+        temp2 .= sgb.beamsize[1] .* sqrt.(temp4 ./ sgb.optics.optics_x.beta)
+        temp5 .= sgb.optics.optics_y.beta .+ sgb.optics.optics_y.gamma .* temp1 .* temp1 .- 2.0 .* sgb.optics.optics_y.alpha .* temp1
+        temp3 .= sgb.beamsize[2] .* sqrt.(temp5 ./ sgb.optics.optics_y.beta)
+        
+        # temp4 and temp5 are free to change now.
+
+        dist.x .+= (dist.px .* temp1)
+        dist.y .+= (dist.py .* temp1)
+        slicelumi=0.0
+        @inbounds for j in 1:num_macro
+            Bassetti_Erskine!(fieldvec, dist.x[j], dist.y[j], temp2[j], temp3[j])
+            dist.px[j] += (sgb.zslice_npar[i]*factor) * fieldvec[1]
+            dist.py[j] += (sgb.zslice_npar[i]*factor) * fieldvec[2]
+            slicelumi += fieldvec[3]
+        end
+       
+        lumi += slicelumi * sgb.zslice_npar[i] #  Will do it outside* wb.num_particle / wb.num_macro
+        
+        
+        dist.x .-= (dist.px .* temp1)
+        dist.y .-= (dist.py .* temp1)
+
+        
+
+    end
+    lumi
 
 end
 
 
-
+function track!(wb::BunchedBeam, sgb::StrongGaussianBeam)
+    factor=wb.particle.classrad0/wb.gamma*wb.particle.charge*sgb.particle.charge
+    lumi=track!(wb.dist, wb.temp1, wb.temp2, wb.temp3, wb.temp4, wb.temp5, sgb, factor)
+    lumi *= wb.num_particle / wb.num_macro
+end
 

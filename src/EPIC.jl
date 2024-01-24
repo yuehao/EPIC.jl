@@ -6,21 +6,25 @@ include("abstypes.jl")
 include("beam/beam.jl")
 
 include("lattice/elements.jl")
+include("lattice/lattice.jl")
 include("optics/optics.jl")
 
 export PROTON, ELECTRON, GOLDION
 export ps6d
 
 export BunchedBeam
-export get_centroid!,get_2nd_moments!, get_emittance!
+export get_centroid!,get_2nd_moment!, get_emittance!
 export initilize_6DGaussiandist!, histogram1DinZ!
 
 export optics4DUC
 
-export StrongGaussianBeam, StrongThinGaussianBeam, initilize_zslice!, Bassetti_Erskine
-export TransferMap4D, OneTurnRadiation
-export AccelCavity, LongitudinalRLCWake
-
+export StrongGaussianBeam, StrongThinGaussianBeam, initilize_zslice!, Bassetti_Erskine!
+export Drift, ThinCorrector
+export TransferMap4D, TransferMap4DChrom, LongitudinalRFMap, OneTurnRadiation
+export AccelCavity, CrabCavity, easyCrabCavity, LongitudinalRLCWake
+export LorentzBoost, InvLorentzBoost
+export Lattice
 export track!
+export get_synchrotron_tune
 
 end

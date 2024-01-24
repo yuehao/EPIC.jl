@@ -26,34 +26,38 @@ function LongitudinalRLCWake(freq::Float64, Rshunt::Float64, Q0::Float64)
     return LongitudinalRLCWake(freq, Rshunt, Q0, wakefield)
 end
 
-function track!(beam::BunchedBeam, rlcwake::AbstractLongiWakefield)
-    nbins=Int64(round(sqrt(beam.num_macro)))÷2
-    zhist, zhist_edges=histogram1DinZ!(beam, nbins)
-    zhist_center=(zhist_edges[1:end-1]+zhist_edges[2:end])/2.0
-    wakefield=rlcwake.wakefield.((zhist_center.-zhist_center[end]) ./ 2.99792458e8)
-    
-    wakepotential=zeros(nbins)
-    eN_b2E=beam.num_particle*1.6021766208e-19*beam.particle.charge^2/beam.total_energy/beam.beta/beam.beta/beam.particle.atomnum
+function track!(ps6dcoor::AbstractVector{ps6d{T}}, rlcwake::AbstractLongiWakefield, inzindex, eN_b2E, nbins, zhist, zhist_edges, zhist_center, wakefield, wakepotential, wakeatedge) where T
+    num_macro=length(ps6dcoor.x)
+    zhist_center .= ((zhist_edges[1:end-1]) .+ (zhist_edges[2:end]))./2.0
+    wakefield .= rlcwake.wakefield.((zhist_center .- zhist_center[end]) ./ 2.99792458e8)
     @inbounds for i=1:nbins
         for j=i:nbins
-            wakepotential[i]+=zhist[j]*wakefield[nbins-j+i]/beam.num_macro
+            wakepotential[i]+=zhist[j]*wakefield[nbins-j+i]/num_macro
         end
     end
-    # wakepotential=DSP.conv(zhist, wakefield)[nbins:end]
-    wakeatedge=zhist_edges.*0.0
-    wakeatedge[2:end-1]=(wakepotential[1:end-1]+wakepotential[2:end])/2.0
+    
+    wakeatedge[2:end-1] .= ((wakepotential[1:end-1]) .+ (wakepotential[2:end])) ./ 2.0
     wakeatedge[1]= 2*wakeatedge[2]-wakeatedge[3]
     wakeatedge[end]= 2*wakeatedge[end-1]-wakeatedge[end-2]
 
     zsep=(zhist_edges[2]-zhist_edges[1])
-    @inbounds for i in 1:beam.num_macro
-        zloc=beam.dist.z[i]
-        zindex=beam.inzindex[i]
+    @inbounds for i in 1:num_macro
+        zloc=ps6dcoor.z[i]
+        zindex=inzindex[i]
         wake1=wakeatedge[zindex]
         wake2=wakeatedge[zindex+1]
         wakezloc=wake1+(wake2-wake1)*(zloc-zhist_edges[zindex])/zsep
-        beam.dist.dp[i]-=wakezloc*eN_b2E
+        ps6dcoor.dp[i]-=wakezloc*eN_b2E
     end
+    return nothing
+end
+
+
+function track!(beam::BunchedBeam, rlcwake::AbstractLongiWakefield)
+    histogram1DinZ!(beam)
+    eN_b2E=beam.num_particle*1.6021766208e-19*beam.particle.charge^2/beam.total_energy/beam.beta/beam.beta/beam.particle.atomnum
+    track!(beam.dist, rlcwake, beam.inzindex, eN_b2E, beam.znbin, beam.zhist, beam.zhist_edges, beam.ztemp1, beam.ztemp2, beam.ztemp3, beam.ztemp4)
+
 end
 
 

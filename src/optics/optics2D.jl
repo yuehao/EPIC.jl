@@ -18,3 +18,5 @@ end
 function invnormal_mat(op2d::optics2D)
     return @SMatrix [sqrt(op2d.beta) 0.0; -op2d.alpha*sqrt(op2d.beta)  1.0/sqrt(op2d.beta)]
 end
+
+
