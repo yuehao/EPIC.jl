@@ -134,6 +134,7 @@ function histogram1DinZ!(ps6dcoor::AbstractVector{ps6d{T}}, nbins::Int64, inzind
     num_macro=length(ps6dcoor.z)
     zmax=maximum(ps6dcoor.z)
     zmin=minimum(ps6dcoor.z)
+    zhist .= 0.0
     zhist_edges .= collect(range(zmin-(zmax-zmin)/nbins, zmax+(zmax-zmin)/nbins, length=nbins+1))
     zsep=(zhist_edges[end]-zhist_edges[1])/nbins
     @inbounds for i in 1:num_macro

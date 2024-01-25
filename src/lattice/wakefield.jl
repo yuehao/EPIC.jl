@@ -30,6 +30,7 @@ function track!(ps6dcoor::AbstractVector{ps6d{T}}, rlcwake::AbstractLongiWakefie
     num_macro=length(ps6dcoor.x)
     zhist_center .= ((zhist_edges[1:end-1]) .+ (zhist_edges[2:end]))./2.0
     wakefield .= rlcwake.wakefield.((zhist_center .- zhist_center[end]) ./ 2.99792458e8)
+    wakepotential .= 0.0
     @inbounds for i=1:nbins
         for j=i:nbins
             wakepotential[i]+=zhist[j]*wakefield[nbins-j+i]/num_macro
@@ -37,8 +38,8 @@ function track!(ps6dcoor::AbstractVector{ps6d{T}}, rlcwake::AbstractLongiWakefie
     end
     
     wakeatedge[2:end-1] .= ((wakepotential[1:end-1]) .+ (wakepotential[2:end])) ./ 2.0
-    wakeatedge[1]= 2*wakeatedge[2]-wakeatedge[3]
-    wakeatedge[end]= 2*wakeatedge[end-1]-wakeatedge[end-2]
+    wakeatedge[1] = 2*wakeatedge[2]-wakeatedge[3]
+    wakeatedge[end] = 2*wakeatedge[end-1]-wakeatedge[end-2]
 
     zsep=(zhist_edges[2]-zhist_edges[1])
     @inbounds for i in 1:num_macro
