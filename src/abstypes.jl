@@ -12,6 +12,8 @@ abstract type AbstractOptics4D <:AbstractOptics end
 abstract type AbstractElement end
 
 abstract type AbstractCavity <:AbstractElement end
+abstract type AbstractAccelCavity <:AbstractCavity end
+abstract type AbstractCrabCavity <:AbstractCavity end
 
 abstract type AbstractCorrector <:AbstractElement end
 

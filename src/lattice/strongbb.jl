@@ -25,11 +25,16 @@ struct StrongGaussianBeam <: AbstractStrongBeamBeam  # Strong Beam with transver
     nzslice::Int64 # Number of slices in z direction
     zslice_center::Vector{Float64} # z center of each slice
     zslice_npar::Vector{Float64} # amplitude of each slice
+    xoffsets::Vector{Float64} # x offset of each slice
+    yoffsets::Vector{Float64} # y offset of each slice
     function StrongGaussianBeam(particle::ParticleType, np::Float64, energy::Float64, op::AbstractOptics4D, bs::Vector{Float64}, nz::Int)
         momentum=sqrt(energy*energy-particle.mass*particle.mass)  
         gamma=energy/particle.mass
         beta=momentum/energy
-        new(particle,np,energy,momentum,gamma,beta, op, bs, Int64(nz), zeros(nz), zeros(nz))
+        new(particle,np,energy,momentum,gamma,beta, op, bs, Int64(nz), 
+            zeros(nz), zeros(nz), # zslice_center, zslice_npar
+            zeros(nz), zeros(nz)   # xoffsets, yoffsets
+            )
     end  
 end
 
@@ -81,6 +86,20 @@ function initilize_zslice!(beam::StrongGaussianBeam, zlist::Vector{Float64}, sli
             beam.zslice_center[i]=mean(sort_zlist[npartedge[i]+1:npartedge[i+1]])
         end
     end
+    return nothing
+end
+
+# function crab_crossing_setup!(beam::StrongGaussianBeam, crossing_angle::Float64, cc::AbstractCrabCavity)
+#     beam.xoffsets .= (crossing_angle / 2.0 / cc.k) .* sin.((-cc.k) .* beam.zslice_center .+ cc.ϕ) + (crossing_angle / 2.0) .* beam.zslice_center
+#     return nothing
+# end
+
+function crab_crossing_setup!(beam::StrongGaussianBeam, crossing_angle::Float64, ccs::Vararg{AbstractCrabCavity})
+    beam.xoffsets .= (crossing_angle / 2.0) .* beam.zslice_center
+    for cc in ccs
+        beam.xoffsets .+= (cc.halfθc / 2.0 / cc.k) .* sin.((-cc.k) .* beam.zslice_center .+ cc.ϕ)
+    end
+    return nothing
 end
 
 
@@ -157,9 +176,11 @@ function track!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5
 
         dist.x .+= (dist.px .* temp1)
         dist.y .+= (dist.py .* temp1)
+        dist.dp .-= (dist.px .* dist.px .+ dist.py .* dist.py) ./ 4.0
+        
         slicelumi=0.0
         @inbounds for j in 1:num_macro
-            Bassetti_Erskine!(fieldvec, dist.x[j], dist.y[j], temp2[j], temp3[j])
+            Bassetti_Erskine!(fieldvec, dist.x[j]-sgb.xoffsets[i], dist.y[j]-sgb.yoffsets[i], temp2[j], temp3[j])
             dist.px[j] += (sgb.zslice_npar[i]*factor) * fieldvec[1]
             dist.py[j] += (sgb.zslice_npar[i]*factor) * fieldvec[2]
             slicelumi += fieldvec[3]
@@ -170,6 +191,7 @@ function track!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5
         
         dist.x .-= (dist.px .* temp1)
         dist.y .-= (dist.py .* temp1)
+        dist.dp .+= (dist.px .* dist.px .+ dist.py .* dist.py) ./ 4.0
 
         
 

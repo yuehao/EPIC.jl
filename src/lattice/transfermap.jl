@@ -159,8 +159,8 @@ end
 
 struct LongitudinalRFMap <: AbstractLongitudinalMap
     αc::Float64
-    RF::AbstractCavity
-    LongitudinalRFMap(αc::Float64, RF::AbstractCavity)=new(αc, RF)
+    RF::AbstractAccelCavity
+    LongitudinalRFMap(αc::Float64, RF::AbstractAccelCavity)=new(αc, RF)
 end
 
 function trackslippage!(ps6dcoor::AbstractVector{ps6d{T}}, lm::LongitudinalRFMap, gamma::Float64) where T

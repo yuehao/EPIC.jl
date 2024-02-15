@@ -18,10 +18,10 @@ export initilize_6DGaussiandist!, histogram1DinZ!
 
 export optics4DUC
 
-export StrongGaussianBeam, StrongThinGaussianBeam, initilize_zslice!, Bassetti_Erskine!
+export StrongGaussianBeam, StrongThinGaussianBeam, initilize_zslice!, Bassetti_Erskine!, crab_crossing_setup!
 export Drift, ThinCorrector
 export TransferMap4D, TransferMap4DChrom, LongitudinalRFMap, OneTurnRadiation
-export AccelCavity, CrabCavity, easyCrabCavity, LongitudinalRLCWake
+export AccelCavity, CrabCavity, easyCrabCavity, LongitudinalRLCWake, LongitudinalWake
 export LorentzBoost, InvLorentzBoost
 export Lattice
 export track!

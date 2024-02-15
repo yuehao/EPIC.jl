@@ -1,6 +1,6 @@
 
 
-struct CrabCavity <: AbstractCavity
+struct CrabCavity <: AbstractCrabCavity
     f::Float64 # frequency
     v::Float64 # voltage
     k::Float64 # wavenumber
@@ -29,7 +29,7 @@ function track!(beam::AbstractBeam, cc::CrabCavity)
    track!(beam.dist, cc, β2E, beam.temp1, beam.temp2, beam.temp3)
 end
 
-struct easyCrabCavity <: AbstractCavity
+struct easyCrabCavity <: AbstractCrabCavity
     f::Float64 # frequency
     halfθc::Float64 # voltage
     k::Float64 # wavenumber
@@ -56,7 +56,7 @@ end
 
 
 
-mutable struct AccelCavity <: AbstractCavity
+mutable struct AccelCavity <: AbstractAccelCavity
    f::Float64 # frequency
    v::Float64 # voltage
    k::Float64 # wavenumber

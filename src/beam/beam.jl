@@ -37,11 +37,13 @@ struct BunchedBeam<: AbstractBeam
     ztemp4::Vector{Float64} # temporary variable for track!
 
     function BunchedBeam(particle::ParticleType, np::Float64, energy::Float64, nmacro::Int, 
-                        emittance::Vector{Float64}, centroid::Vector{Float64}=zeros(6))
+                        emittance::Vector{Float64}, znbin::Int64=0, centroid::Vector{Float64}=zeros(6))
         momentum=sqrt(energy*energy-particle.mass*particle.mass)
         gamma=energy/particle.mass
         beta=momentum/energy
-        znbin=Int64(round(sqrt(nmacro)))÷2
+        if znbin==0
+            znbin=Int64(round(sqrt(nmacro)))
+        end
         new(particle, np, energy,momentum,gamma,beta,nmacro,
             StructArray{ps6d{Float64}}(undef,nmacro), Vector{Int64}(undef, nmacro), 
             Vector{Float64}(undef, nmacro), Vector{Float64}(undef, nmacro), Vector{Float64}(undef, nmacro), # temporary variable for track!

@@ -8,18 +8,22 @@ using StaticArrays
 using SpecialFunctions
 
 using Distributions
+using DelimitedFiles
 
 # test bunched beam with IP optics and 6D Gaussian distribution
 
-pbeam=BunchedBeam(PROTON, 1e11, 250e9,  1000000, [2.5e-6, 1e-6, 1e-1])
+pbeam=BunchedBeam(PROTON, 1e11, 250e9,  100000, [2.5e-6, 1e-6, 1e-1])
 
 opIP=optics4DUC(4.0,0.0,1.0,0.0)
 
 mainRF=AccelCavity(197e6, 1e6, 2520.0, 0.0)
-initilize_6DGaussiandist!(pbeam, opIP, mainRF, 1.8e-3)
+
+αc=1e-3
+lmap=LongitudinalRFMap(αc, mainRF)
+initilize_6DGaussiandist!(pbeam, opIP, lmap)
 minimum(pbeam.dist.y), maximum(pbeam.dist.y)
 @benchmark begin
-    initilize_6DGaussiandist!(pbeam, opIP, mainRF, 1.8e-3)
+    initilize_6DGaussiandist!(pbeam, opIP, lmap)
     #track!(pbeam.dist, mainRF, 1.8e-3)
     #get_centroid!(pbeam)
     
@@ -89,6 +93,14 @@ track!(pbeam, RLCwake)
 @btime begin track!(pbeam, RLCwake) end
 
 plot(pbeam.dist.z, pbeam.dist.dp.-old_dp, markersize=1, seriestype=:scatter, legend=false, xlabel="z [m]", ylabel="dp/p" )
+
+externalwake=readdlm("test/example_wake.txt", ' ', Float64, '\n')
+times=externalwake[1:500,1]
+wakes=-externalwake[1:500,2]
+plot(times.*3e8, wakes, legend=false, xlabel="z [m]", ylabel="W [V/C]", title="External Wakefield")
+arbWake=LongitudinalWake(times, wakes)
+
+
 
 
 ## test transfer map

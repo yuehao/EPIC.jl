@@ -1,20 +1,11 @@
 
+using Interpolations
 struct LongitudinalRLCWake <: AbstractLongiWakefield
     freq::Float64
     Rshunt::Float64
     Q0::Float64
     wakefield::Function
 end
-
-struct LongitudinalWake <: AbstractLongiWakefield
-    wakefield::Function
-end
-
-struct TransverseWake <: AbstractTransWakefield
-    wakefield::Function
-end
-
-
 function LongitudinalRLCWake(freq::Float64, Rshunt::Float64, Q0::Float64)
     Q0p=sqrt(Q0^2 - 1.0/4.0)
     ω0 = 2*pi*freq
@@ -25,6 +16,25 @@ function LongitudinalRLCWake(freq::Float64, Rshunt::Float64, Q0::Float64)
     end
     return LongitudinalRLCWake(freq, Rshunt, Q0, wakefield)
 end
+
+struct LongitudinalWake <: AbstractLongiWakefield
+    times::AbstractVector
+    wakefields::AbstractVector
+    wakefield::Function
+end
+function LongitudinalWake(times::AbstractVector, wakefields::AbstractVector, fliptime::Float64=-1.0)
+    wf = linear_interpolation(times, wakefields, extrapolation_bc=Line()) 
+    wakefield_function = function (t::Float64)
+        t>times[1]*fliptime && return 0.0
+        return wf(t*fliptime)
+    end
+    return LongitudinalWake(times, wakefields, wakefield_function)
+end
+
+
+
+
+
 
 function track!(ps6dcoor::AbstractVector{ps6d{T}}, rlcwake::AbstractLongiWakefield, inzindex, eN_b2E, nbins, zhist, zhist_edges, zhist_center, wakefield, wakepotential, wakeatedge) where T
     num_macro=length(ps6dcoor.x)
