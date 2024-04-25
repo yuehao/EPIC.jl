@@ -3,11 +3,16 @@ using Test
 using BenchmarkTools
 using Plots
 using DelimitedFiles
+using Serialization
+ 
+  
+# Using FileIO module 
+using FileIO 
 theme(:ggplot2)
 
 begin
-    ebeam=BunchedBeam(ELECTRON, 1.72e11, 10e9,  50000, [20e-9/0.8, 1.3e-9, 1.36e-4])
-    opIPe=optics4DUC(0.45*0.8,0.0,0.056,0.0)
+    ebeam=BunchedBeam(ELECTRON, 1.72e11*3, 10e9,  500000, [20e-9, 1.3e-9, 1.36e-4])
+    opIPe=optics4DUC(0.45,0.0,0.056,0.0)
     vbase=3.42*8.5e6
     ϕs=10.0
     vact=vbase/cos(ϕs*π/180.0)
@@ -19,21 +24,24 @@ begin
     initilize_6DGaussiandist!(ebeam, opIPe, lmap)
 
     get_emittance!(ebeam)
-    eqbs=1.0.*ebeam.beamsize
+    ebeam.eqbeamsize .= ebeam.beamsize
 
 
-    ezcrab1=easyCrabCavity(394.0e6, 12.5e-3*0.0)
-    #track!(ebeam, ezcrab1)
+    ezcrab1=easyCrabCavity(394.0e6, 12.5e-3)
     lb=LorentzBoost(12.5e-3)
     #track!(ebeam, lb)
     #scatter(ebeam.dist.z, ebeam.dist.x; markersize=0.1, color=:oslo)
     opIPp=optics4DUC(0.8, 0.0, 0.072, 0.0)
-    pstrong=StrongGaussianBeam(PROTON, 0.688e11, 275e9,  opIPp, [95e-6, 8.5e-6, 0.06], 9)
-    initilize_zslice!(pstrong, :gaussian, :evennpar, 5.0)
+    
+    
     #lumi=track!(ebeam, pstrong) 
     ilb=InvLorentzBoost(12.5e-3)
     #track!(ebeam, ilb)
-    ezcrab2=easyCrabCavity(394.0e6, 12.5e-3*0.0, π)
+    ezcrab2=easyCrabCavity(394.0e6, 12.5e-3, π)
+    
+
+    pstrong=StrongGaussianBeam(PROTON, 0.688e11, 275e9,  opIPp, [95e-6, 8.5e-6, 0.06], 9)
+    initilize_zslice!(pstrong, :gaussian, :evennpar, 7.0)
     crab_ratio=0.33
     overcrab=1.0
     pcrab1st = easyCrabCavity(197.0e6, overcrab*12.5e-3*(1+crab_ratio))
@@ -45,8 +53,8 @@ begin
     RLCwake = LongitudinalRLCWake(180e9, 5.5e3, 3.0)
 
     externalwake=readdlm("test/example_wake.txt", ' ', Float64, '\n')
-    times=externalwake[1:5000,1]
-    wakes=-externalwake[1:5000,2]
+    times=externalwake[:,1]
+    wakes=-externalwake[:,2]
     
     arbWake=LongitudinalWake(times, wakes)
 
@@ -54,36 +62,26 @@ begin
 
     oneturn=TransferMap4DChrom(opIPe, tunex, tuney, 2.0, 2.0)
     oneturndamp=OneTurnRadiation(4000.0, 4000.0, 2000.0)
-    eqbs
+    
 
 
     line1=Lattice([ezcrab1, lb])
-    line2=Lattice([ilb, ezcrab2, oneturn, lmap])
-    longiline=Lattice([lmap, RLCwake])
+    line2=Lattice([ilb, ezcrab2, oneturn, oneturndamp, lmap, arbWake])
+    longiline=Lattice([oneturndamp, lmap, arbWake])
 end
 
 
+
+mainRFe
 plot(pstrong.zslice_center, pstrong.xoffsets)
 
-# externalwake=readdlm("test/example_wake.txt", ' ', Float64, '\n')
-# times=externalwake[1:5000,1]
-# wakes=-externalwake[1:5000,2]
-# plot(times.*3e8, wakes, legend=false, xlabel="z [m]", ylabel="W [V/C]", title="External Wakefield")
-# arbWake=LongitudinalWake(times, wakes)
+old_dp=ebeam.dist.dp.*1.0
+track!(ebeam, arbWake)
+plot(ebeam.dist.z[1:100000], (ebeam.dist.dp.-old_dp)[1:100000], markersize=1, seriestype=:scatter, legend=false, xlabel="z [m]", ylabel="dp/p" )
 
-##plot wake field
-# wake1=RLCwake.wakefield.(ebeam.dist.z./3e8)
-# wake2=arbWake.wakefield.(ebeam.dist.z./3e8)
-# plot(ebeam.dist.z, wake1, legend=false, markersize=0.2, seriestype=:scatter, xlabel="z [m]", ylabel="W [V/C]", title="RLC Wakefield")
-# plot!(ebeam.dist.z, wake2, legend=false, markersize=0.2, seriestype=:scatter, xlabel="z [m]", ylabel="W [V/C]", title="RLC Wakefield", xlim=(-0.01, 0.005))
-# old_dp=ebeam.dist.dp.*1.0
+oneturndamp
 
-# track!(ebeam, RLCwake)
-# plot(ebeam.dist.z[1:100000], (ebeam.dist.dp.-old_dp)[1:100000], markersize=1, seriestype=:scatter, legend=false, xlabel="z [m]", ylabel="dp/p" )
-
-
-
-turns=20000
+turns=10000
 coor_rec = Array{Float64, 2}(undef, 6, turns)
 size_rec = Array{Float64, 2}(undef, 6, turns)
 z2nd_rec = Array{Float64, 2}(undef, 6, turns)
@@ -115,7 +113,7 @@ for i in 1:turns
     track!(ebeam, line1)
     lumis[i]=track!(ebeam, pstrong)
     track!(ebeam, line2)
-    track!(ebeam, oneturndamp, eqbs)
+    #track!(ebeam, longiline)
     
     #track!(ebeam, longiline)
     get_emittance!(ebeam)
@@ -127,14 +125,14 @@ for i in 1:turns
     #ebeam.dist.x .+= 1e-6*noise[i]
 end
 
-size_rec
 
+size_rec
 
 using FFTW
 
-plot(@view size_rec[1,:])
+plot(@view size_rec[5,:])
 
-plot(formfactor2s, label="Nominal paramter, no eCC", xlabel="Turns", ylabel="Form Factor, <x^6>/<x^2>^3")
+plot(formfactors, label="Nominal paramter, no eCC", xlabel="Turns", ylabel="Form Factor, <x^6>/<x^2>^3")
 plot(1e3.*z2nd_rec[1,:]./z2nd_rec[5,:])
 
 plot(1e3.*z2nd_rec[2,:]./z2nd_rec[5,:])
@@ -150,11 +148,11 @@ ebeam.emittance
 ebeam.centroid
 ebeam.beamsize
 
-eqbs
+
 ebeam.beamsize
 colorcode= ebeam.dist.z .^ 2 ./ ebeam.beamsize[5]^2 .+ ebeam.dist.dp .^ 2 ./ ebeam.beamsize[6]^2
 colorcode
-plot(ebeam.dist.z, ebeam.dist.x, seriestype=:scatter, markersize=1, xlabel="z", ylabel="x", label="Nominal paramter, no eCC",)
+plot(ebeam.dist.z, ebeam.dist.dp, seriestype=:scatter, markersize=.1, xlabel="z", ylabel="dp", label="Nominal paramter, no eCC",)
 savefig("test.png")
 
 plot(histogram(ebeam.dist.x, nbins=100))
@@ -168,11 +166,19 @@ plot!(dist08.z, dist08.x, seriestype=:scatter, markersize=1, xlabel="z", ylabel=
 
 
 b_range = range(-10, 10, length=101)
-plot()
-histogram!(ebeam.dist.x ./ebeam.beamsize[1], bins=b_range, yaxis=(:log10, (1, 5000)), label="Nominal paramter, no eCC")
+plot(xaxis=((-5, 5)))
+histogram!(ebeam.dist.z ./ebeam.beamsize[5], bins=b_range, xaxis=((-5, 5)),label="Nominal paramter, no eCC")
 histogram!(dist08.x ./ std(dist08.x) , bins=b_range, yaxis=(:log10, (1, 5000)), label="0.8x e β_x, no eCC")
 
 using Statistics
 std(dist08.x)
 ebeam.beamsize[1]
 ebeam.dist.x
+
+open("test.jls", "w") do f
+    serialize(f, ebeam.dist)
+end
+
+dist08=open(deserialize, "test.jls")
+
+dist08.x

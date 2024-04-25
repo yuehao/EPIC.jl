@@ -73,7 +73,7 @@ function get_emittance!(beam::BunchedBeam)
     return nothing
 end
 
-function initilize_6DGaussiandist!(beam::BunchedBeam, optics::AbstractOptics4D, lmap::AbstractLongitudinalMap, cutoff::Float64=5.0)
+function initilize_6DGaussiandist!(beam::BunchedBeam, optics::AbstractOptics4D, lmap::AbstractLongitudinalMap, cutoff::Float64=4.0)
     # 6D Gaussian distribution
 
     dist=Truncated(Normal(0.0,1.0),-cutoff,cutoff)
@@ -84,6 +84,8 @@ function initilize_6DGaussiandist!(beam::BunchedBeam, optics::AbstractOptics4D, 
     beam.dist.py .= rand.(dist)
     beam.dist.z .= rand.(dist)
     beam.dist.dp .= rand.(dist)
+    
+    
 
     get_centroid!(beam)
 
@@ -120,20 +122,33 @@ function initilize_6DGaussiandist!(beam::BunchedBeam, optics::AbstractOptics4D, 
     eta_p=lmap.αc-1.0/beam.gamma^2
     
     Qs=sqrt(lmap.RF.v*lmap.RF.h*abs(eta_p*cos(lmap.RF.ϕs))/2/π/beam.beta^2/beam.total_energy)
-
+    
     emit_deltap_z=beam.emittance[3]*2.99792458e8/beam.beta/beam.total_energy
     invbeta_deltap_z=Qs*lmap.RF.k/lmap.RF.h/abs(eta_p)
     beam.dist.z .= beam.temp5 .* sqrt(emit_deltap_z/invbeta_deltap_z)
     beam.dist.dp .= beam.dist.dp .* sqrt(emit_deltap_z*invbeta_deltap_z)
     
+    # check separatrix
+    # beam phase
+    beam.temp1 .= beam.dist.z .* (-lmap.RF.k) .+ lmap.RF.ϕs  # phase
+    beam.temp2 .= (-cos(lmap.RF.ϕs)) .- cos.(beam.temp1) + sin(lmap.RF.ϕs) .* (π - lmap.RF.ϕs .- beam.temp1) # -cos(ϕs)-cos(ϕ)+sin(ϕs)(π-ϕs-ϕ)
+    beam.temp3 .= sqrt.((lmap.RF.v/lmap.RF.h/(eta_p)/π/beam.beta^2/beam.total_energy) .* beam.temp2) .* 0.95  # maximum amplitude of momentum deviation, scale down a bit
+
+    mask= (abs.(beam.dist.dp) .> (beam.temp3))
+    beam.dist.dp[mask] .= beam.temp3[mask] .* (rand.() .- 0.5) .* 2.0  #reset the momentum deviation if it is too large
+    
+    
+
     return nothing
 end
 
 function histogram1DinZ!(ps6dcoor::AbstractVector{ps6d{T}}, nbins::Int64, inzindex, zhist, zhist_edges) where T
     # histogram in z
     num_macro=length(ps6dcoor.z)
-    zmax=maximum(ps6dcoor.z)
-    zmin=minimum(ps6dcoor.z)
+    #zmax=maximum(ps6dcoor.z)
+    #zmin=minimum(ps6dcoor.z)
+    zmax=maximum(abs.(ps6dcoor.z))
+    zmin=-zmax
     zhist .= 0.0
     zhist_edges .= collect(range(zmin-(zmax-zmin)/nbins, zmax+(zmax-zmin)/nbins, length=nbins+1))
     zsep=(zhist_edges[end]-zhist_edges[1])/nbins

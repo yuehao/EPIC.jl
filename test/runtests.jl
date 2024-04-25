@@ -16,7 +16,7 @@ pbeam=BunchedBeam(PROTON, 1e11, 250e9,  100000, [2.5e-6, 1e-6, 1e-1])
 
 opIP=optics4DUC(4.0,0.0,1.0,0.0)
 
-mainRF=AccelCavity(197e6, 1e6, 2520.0, 0.0)
+mainRF=AccelCavity(197e6, 1e6, 2520.0, π)
 
 αc=1e-3
 lmap=LongitudinalRFMap(αc, mainRF)
@@ -51,8 +51,6 @@ track!(pbeam.dist, corrector1)
 track!(pbeam, mainRF)
 @btime begin 
     track!(pbeam, mainRF) 
-    track!(pbeam, mainRF)
-    track!(pbeam, mainRF)
 end
 
 # test crab CrabCavity
@@ -95,17 +93,20 @@ track!(pbeam, RLCwake)
 plot(pbeam.dist.z, pbeam.dist.dp.-old_dp, markersize=1, seriestype=:scatter, legend=false, xlabel="z [m]", ylabel="dp/p" )
 
 externalwake=readdlm("test/example_wake.txt", ' ', Float64, '\n')
-times=externalwake[1:500,1]
-wakes=-externalwake[1:500,2]
+times=externalwake[:,1]
+wakes=-externalwake[:,2]
 plot(times.*3e8, wakes, legend=false, xlabel="z [m]", ylabel="W [V/C]", title="External Wakefield")
-arbWake=LongitudinalWake(times, wakes)
+arbWake=LongitudinalWake(-times, wakes)
+wakeatz=arbWake.wakefield.(pbeam.dist.z/10.0/3e8)
+plot(pbeam.dist.z, wakeatz, seriestype=:scatter, xlim=(-0.2, 0.1), markersize=1, legend=false, xlabel="z [m]", ylabel="W [V/C]", title="External Wakefield")
+
 
 
 
 
 ## test transfer map
 oneturn=TransferMap4DChrom(opIP, 0.08, 0.139, 1.0, 1.0)
-oneturn.invumat
+oneturn.umat
 track!(pbeam, oneturn)
 @benchmark begin track!(pbeam, oneturn) end
 
@@ -132,9 +133,12 @@ fieldvec
 
 pbeam=BunchedBeam(PROTON, 0.688e11, 275e9,  1000000, [11.3e-9, 1e-9, 3.75e-2])
 opIPp=optics4DUC(0.8, 0.0, 0.072, 0.0)
-mainRF=AccelCavity(591e6, 19.6e6, 7560.0, 0.0)
-initilize_6DGaussiandist!(pbeam, opIPp, mainRF, 1.8e-3)
+mainRF=AccelCavity(591e6, 15.8e6, 7560.0, π)
+αc=1.5e-3
+lmap=LongitudinalRFMap(αc, mainRF)
+initilize_6DGaussiandist!(pbeam, opIPp, lmap)
 get_emittance!(pbeam)
+
 pbeam.beamsize
 
 opIPe=optics4DUC(0.45, 0.0, 0.056, 0.0)
@@ -158,13 +162,73 @@ b=@view a[1:end-1] .+ (@view a[2:end])
 
 line=Lattice()
 pbeam=BunchedBeam(PROTON, 0.688e11, 275e9,  1000000, [11.3e-9, 1e-9, 3.75e-2])
-ebeam=BunchedBeam(ELECTRON, 1.72e11, 10e9,  100000, [20e-9, 1.3e-9, 3.75e-3])
+begin
+    ebeam=BunchedBeam(ELECTRON, 1.72e11, 10e9,  100000, [20e-9, 1.3e-9, 1.36e-4], 2000)
+    opIPe=optics4DUC(0.45,0.0,0.056,0.0)
+    vbase=3.42*8.5e6
+    ϕs=10.0
+    vact=vbase/cos(ϕs*π/180.0)
+    mainRFe=AccelCavity(591e6, vact, 7560.0, π-ϕs*π/180.0)
+    tunex, tuney=50.08, 44.14
+    αc=3.42/tunex/tunex
+    lmap=LongitudinalRFMap(αc, mainRFe)
+    tunez=get_synchrotron_tune(ebeam, lmap)
+    initilize_6DGaussiandist!(ebeam, opIPe, lmap)
+    externalwake=readdlm("test/example_wake.txt", ' ', Float64, '\n')
+    times=externalwake[:,1]
+    wakes=-externalwake[:,2]
+    plot(times.*3e8, wakes, legend=false, xlabel="z [m]", ylabel="W [V/C]", title="External Wakefield")
+    arbWake=LongitudinalWake(times, wakes)
 
-track!(pbeam, line)
+end
+
+old_dp=ebeam.dist.dp.*1.0
+
+track!(ebeam, arbWake)
+
+
+@btime begin track!(ebeam, arbWake) end
+
+plot(ebeam.dist.z, ebeam.dist.dp.-old_dp, markersize=1, seriestype=:scatter, legend=false, xlabel="z [m]", ylabel="dp/p" )
+# wakeatz=arbWake.wakefield.(ebeam.dist.z/3e8)
+# #plot(ebeam.dist.z, wakeatz, seriestype=:scatter, xlim=(-0.02, 0.01), markersize=1, legend=false, xlabel="z [m]", ylabel="W [V/C]", title="External Wakefield")
+
+# histogram1DinZ!(ebeam)
+# ebeam.zhist_edges
+# ebeam.ztemp1 .= (ebeam.zhist_edges[1:end-1] .+ ebeam.zhist_edges[2:end])/2.0
+# ebeam.ztemp2 .= arbWake.wakefield.(ebeam.ztemp1/3e8)
+# plot(ebeam.ztemp1, ebeam.ztemp2, seriestype=:scatter, markersize=1, legend=false, xlabel="z [m]", ylabel="W [V/C]", title="External Wakefield")
+# plot(ebeam.ztemp1, ebeam.zhist, seriestype=:scatter, markersize=1, legend=false, xlabel="z [m]", ylabel="W [V/C]", title="External Wakefield")
+# ebeam.ztemp1 .= 0.0
+# # convolution for same length
+# halfzn=ebeam.znbin ÷ 2
+# for i=1:ebeam.znbin
+#     for j=-halfzn:halfzn
+#         if i-j>0 && i-j<=ebeam.znbin
+#             ebeam.ztemp1[i]+=ebeam.ztemp2[j+halfzn+1]*ebeam.zhist[i-j]/ebeam.num_macro
+#         end
+#     end
+# end
+
+
 
 @testset "EPIC.jl" begin
     # Write your tests here.
     a=1
 end
 
+struct MyType
+    a::Float64
+    b::Float64
+    c::Float64
+end
 
+
+
+f(x, mt) = mt.a*cos(x) + mt.b* sin(x) +mt.c
+begin
+    mt1=MyType(1.0, 2.0, 3.0)
+    @benchmark f(1.0, mt1)
+end
+
+@benchmark runthis()

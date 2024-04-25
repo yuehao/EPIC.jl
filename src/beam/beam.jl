@@ -25,6 +25,7 @@ struct BunchedBeam<: AbstractBeam
     emittance::Vector{Float64} # emittance in x, y, z
     centroid::Vector{Float64} # centroid in x, px, y, py, z, pz
     beamsize::Vector{Float64} # beamsize in x, px, y, py, z, pz
+    eqbeamsize::Vector{Float64} # equilibrium beamsize in x, px, y, py, z, pz
     moment2nd::Matrix{Float64} # 2nd moment matrix
 
     znbin::Int64 # number of z bins
@@ -44,11 +45,12 @@ struct BunchedBeam<: AbstractBeam
         if znbin==0
             znbin=Int64(round(sqrt(nmacro)))
         end
+        znbin=(znbin ÷ 2) * 2 + 1 # make sure it is odd
         new(particle, np, energy,momentum,gamma,beta,nmacro,
             StructArray{ps6d{Float64}}(undef,nmacro), Vector{Int64}(undef, nmacro), 
             Vector{Float64}(undef, nmacro), Vector{Float64}(undef, nmacro), Vector{Float64}(undef, nmacro), # temporary variable for track!
             Vector{Float64}(undef, nmacro), Vector{Float64}(undef, nmacro), # temporary variable for track!
-            emittance, centroid, zeros(6), zeros(6,6),
+            emittance, centroid, zeros(6), zeros(6), zeros(6,6),
             znbin, zeros(znbin), Vector{Float64}(undef, znbin+1), 
             Vector{Float64}(undef, znbin), Vector{Float64}(undef, znbin), Vector{Float64}(undef, znbin), Vector{Float64}(undef, znbin+1))
     end

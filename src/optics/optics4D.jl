@@ -1,7 +1,9 @@
-mutable struct optics4DUC <: AbstractOptics4D # 4D linear transformation uncoupled
-    optics_x::optics2D
-    optics_y::optics2D
+struct optics4DUC <: AbstractOptics4D # 4D linear transformation uncoupled
+    optics_x::AbstractOptics2D
+    optics_y::AbstractOptics2D
 end
+
+
 optics4DUC(bx::Float64, ax::Float64, by::Float64, ay::Float64)=optics4DUC(optics2D(bx,ax),optics2D(by,ay))
 
 function normal_mat(op4d::optics4DUC)

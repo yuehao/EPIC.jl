@@ -161,42 +161,76 @@ function track!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5
     #factor=wb.particle.classrad0/wb.gamma*wb.particle.charge*sgb.particle.charge
     
     lumi=0.0
-    num_macro=length(dist.x)
-    fieldvec = MVector{3,Float64}(0.0, 0.0, 0.0)
+    betax=sgb.optics.optics_x.beta
+    betay=sgb.optics.optics_y.beta
+    alphax=sgb.optics.optics_x.alpha
+    alphay=sgb.optics.optics_y.alpha
+    gammax=sgb.optics.optics_x.gamma
+    gammay=sgb.optics.optics_y.gamma
 
-    @inbounds for i in 1:sgb.nzslice
+    #fieldvec = MVector(0.0, 0.0, 0.0)
+    for i in 1:sgb.nzslice
         # temp1: collision zlocation, temp2: beamsize x, temp3: beamsize y, temp4: beta x, temp5: beta y
-        temp1 .= (dist.z .+ sgb.zslice_center[i])./2.0
-        temp4 .= sgb.optics.optics_x.beta .+ sgb.optics.optics_x.gamma .* temp1 .* temp1 .- 2.0 .* sgb.optics.optics_x.alpha .* temp1
-        temp2 .= sgb.beamsize[1] .* sqrt.(temp4 ./ sgb.optics.optics_x.beta)
-        temp5 .= sgb.optics.optics_y.beta .+ sgb.optics.optics_y.gamma .* temp1 .* temp1 .- 2.0 .* sgb.optics.optics_y.alpha .* temp1
-        temp3 .= sgb.beamsize[2] .* sqrt.(temp5 ./ sgb.optics.optics_y.beta)
+
+        fieldvec_thread=[MVector{3}(0.0, 0.0, 0.0)  for j = 1:Threads.nthreads()]
+        slicelumi_thread=[0.0 for j=1:Threads.nthreads()]
+
+        #temp1 .= (dist.z .+ sgb.zslice_center[i])./2.0
+        #temp4 .= sgb.optics.optics_x.beta .+ sgb.optics.optics_x.gamma .* temp1 .* temp1 .- 2.0 .* sgb.optics.optics_x.alpha .* temp1
+        #temp2 .= sgb.beamsize[1] .* sqrt.(temp4 ./ sgb.optics.optics_x.beta)
+        #temp5 .= sgb.optics.optics_y.beta .+ sgb.optics.optics_y.gamma .* temp1 .* temp1 .- 2.0 .* sgb.optics.optics_y.alpha .* temp1
+        #temp3 .= sgb.beamsize[2] .* sqrt.(temp5 ./ sgb.optics.optics_y.beta)
         
         # temp4 and temp5 are free to change now.
 
-        dist.x .+= (dist.px .* temp1)
-        dist.y .+= (dist.py .* temp1)
-        dist.dp .-= (dist.px .* dist.px .+ dist.py .* dist.py) ./ 4.0
+        # @inbounds Threads.@threads for j in eachindex(dist.x)
+        #     
+        # end
+
+        # dist.x .+= (dist.px .* temp1)
+        # dist.y .+= (dist.py .* temp1)
+        # dist.dp .-= (dist.px .* dist.px .+ dist.py .* dist.py) ./ 4.0
         
-        slicelumi=0.0
-        @inbounds for j in 1:num_macro
-            Bassetti_Erskine!(fieldvec, dist.x[j]-sgb.xoffsets[i], dist.y[j]-sgb.yoffsets[i], temp2[j], temp3[j])
-            dist.px[j] += (sgb.zslice_npar[i]*factor) * fieldvec[1]
-            dist.py[j] += (sgb.zslice_npar[i]*factor) * fieldvec[2]
-            slicelumi += fieldvec[3]
+        #slicelumi=Threads.Atomic{Float64}(0.0)
+        #slicelumi=0.0
+        @inbounds Threads.@threads for j in eachindex(dist.x)
+            temp1[j] = (dist.z[j] + sgb.zslice_center[i]) / 2.0
+            temp4[j] = betax + gammax * temp1[j] * temp1[j] - 2.0 * alphax * temp1[j]
+            temp5[j] = betay + gammay * temp1[j] * temp1[j] - 2.0 * alphay * temp1[j]
+            temp2[j] = sgb.beamsize[1] * sqrt(temp4[j] / betax)
+            temp3[j] = sgb.beamsize[2] * sqrt(temp5[j] / betay) 
+
+            dist.x[j] += (dist.px[j] * temp1[j])
+            dist.y[j] += (dist.py[j] * temp1[j])
+            dist.dp[j] -= (dist.px[j] * dist.px[j] + dist.py[j] * dist.py[j]) / 4.0
+            
+            Bassetti_Erskine!(fieldvec_thread[Threads.threadid()], dist.x[j]-sgb.xoffsets[i], dist.y[j]-sgb.yoffsets[i], temp2[j], temp3[j])
+            dist.px[j] += (sgb.zslice_npar[i]*factor) * fieldvec_thread[Threads.threadid()][1]   #fieldvec[1]
+            dist.py[j] += (sgb.zslice_npar[i]*factor) * fieldvec_thread[Threads.threadid()][2]   #fieldvec[2]
+            #slicelumi += fieldvec[3]
+            #Threads.atomic_add!(slicelumi, fieldvec_thread[Threads.threadid()][3])
+            slicelumi_thread[Threads.threadid()] += fieldvec_thread[Threads.threadid()][3]
+
+            dist.x[j] -= (dist.px[j] * temp1[j])
+            dist.y[j] -= (dist.py[j] * temp1[j])
+            dist.dp[j] += (dist.px[j] * dist.px[j] + dist.py[j] * dist.py[j]) / 4.0
         end
+        
        
-        lumi += slicelumi * sgb.zslice_npar[i] #  Will do it outside* wb.num_particle / wb.num_macro
+        lumi += sum(slicelumi_thread) * sgb.zslice_npar[i] #  Will do it outside* wb.num_particle / wb.num_macro
         
-        
-        dist.x .-= (dist.px .* temp1)
-        dist.y .-= (dist.py .* temp1)
-        dist.dp .+= (dist.px .* dist.px .+ dist.py .* dist.py) ./ 4.0
+        # @inbounds Threads.@threads for j in eachindex(dist.x)
+        #    
+        # end
+
+        # dist.x .-= (dist.px .* temp1)
+        # dist.y .-= (dist.py .* temp1)
+        # dist.dp .+= (dist.px .* dist.px .+ dist.py .* dist.py) ./ 4.0
 
         
 
     end
-    lumi
+    return lumi
 
 end
 

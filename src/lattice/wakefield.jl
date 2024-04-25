@@ -23,9 +23,9 @@ struct LongitudinalWake <: AbstractLongiWakefield
     wakefield::Function
 end
 function LongitudinalWake(times::AbstractVector, wakefields::AbstractVector, fliptime::Float64=-1.0)
-    wf = linear_interpolation(times, wakefields, extrapolation_bc=Line()) 
+    wf = linear_interpolation(times, wakefields, extrapolation_bc=0.0) 
     wakefield_function = function (t::Float64)
-        t>times[1]*fliptime && return 0.0
+        # t>times[1]*fliptime && return 0.0
         return wf(t*fliptime)
     end
     return LongitudinalWake(times, wakefields, wakefield_function)
@@ -39,20 +39,25 @@ end
 function track!(ps6dcoor::AbstractVector{ps6d{T}}, rlcwake::AbstractLongiWakefield, inzindex, eN_b2E, nbins, zhist, zhist_edges, zhist_center, wakefield, wakepotential, wakeatedge) where T
     num_macro=length(ps6dcoor.x)
     zhist_center .= ((zhist_edges[1:end-1]) .+ (zhist_edges[2:end]))./2.0
-    wakefield .= rlcwake.wakefield.((zhist_center .- zhist_center[end]) ./ 2.99792458e8)
+    wakefield .= rlcwake.wakefield.((zhist_center .- 0.0*zhist_center[end]) ./ 2.99792458e8)
     wakepotential .= 0.0
-    @inbounds for i=1:nbins
-        for j=i:nbins
-            wakepotential[i]+=zhist[j]*wakefield[nbins-j+i]/num_macro
+    
+    halfzn = nbins ÷ 2
+    @inbounds Threads.@threads for i=1:nbins
+        for j=-halfzn:halfzn
+            if i-j>0 && i-j<=nbins
+                wakepotential[i]+=wakefield[j+halfzn+1]*zhist[i-j]/num_macro
+            end
         end
     end
+    
     
     wakeatedge[2:end-1] .= ((wakepotential[1:end-1]) .+ (wakepotential[2:end])) ./ 2.0
     wakeatedge[1] = 2*wakeatedge[2]-wakeatedge[3]
     wakeatedge[end] = 2*wakeatedge[end-1]-wakeatedge[end-2]
 
     zsep=(zhist_edges[2]-zhist_edges[1])
-    @inbounds for i in 1:num_macro
+    @inbounds Threads.@threads for i in eachindex(ps6dcoor.x)
         zloc=ps6dcoor.z[i]
         zindex=inzindex[i]
         wake1=wakeatedge[zindex]

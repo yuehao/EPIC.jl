@@ -16,6 +16,17 @@ CrabCavity(freq, nv) = CrabCavity(freq, nv, 0.0, StaticArrays.@MVector [0.0,0.0]
 
 
 function track!(ps6dcoor::AbstractVector{ps6d{T}}, cc::CrabCavity, b2E, ang, sinang, cosang) where T
+   @inbounds Threads.@threads for i in eachindex(ps6dcoor.x)
+       ang[i] = (-cc.k) * ps6dcoor.z[i] + cc.ϕ
+       sinang[i] = sin(ang[i])
+       cosang[i] = cos(ang[i])
+       ps6dcoor.px[i] += (cc.v/b2E) * sinang[i]   #px   dx'=v*sin(-kz+phi0) = - dh/dx ==> h~ -v*sin(-kz+phi0)*x
+       ps6dcoor.dp[i] += (-cc.k* cc.v/b2E) * ps6dcoor.x[i] * cosang[i]  # delta dδ = -dh/dz = k v cos(kz) x
+   end
+   return nothing
+end
+
+function track_bcast!(ps6dcoor::AbstractVector{ps6d{T}}, cc::CrabCavity, b2E, ang, sinang, cosang) where T
    ang .= (-cc.k) .* ps6dcoor.z .+ cc.ϕ
    sinang .= sin.(ang)
    cosang .= cos.(ang)
@@ -41,6 +52,17 @@ easyCrabCavity(freq, hθc, phase) = easyCrabCavity(freq, hθc, phase, StaticArra
 easyCrabCavity(freq, hθc) = easyCrabCavity(freq, hθc, 0.0, StaticArrays.@MVector [0.0,0.0])
 
 function track!(ps6dcoor::AbstractVector{ps6d{T}}, cc::easyCrabCavity, ang, sinang, cosang) where T
+   @inbounds Threads.@threads for i in eachindex(ps6dcoor.x)
+       ang[i] = (-cc.k) * ps6dcoor.z[i] + cc.ϕ
+       sinang[i] = sin(ang[i])
+       cosang[i] = cos(ang[i])
+       ps6dcoor.x[i] += (cc.halfθc/cc.k) * sinang[i]    #px   dx=tc/k*sin(-kz+phi0) =  dh/dpx ==> h~ tc/k*sin(-kz+phi0)*px
+       ps6dcoor.dp[i] += (cc.halfθc) * ps6dcoor.px[i] * cosang[i]  # delta dδ = -dh/dz = tc cos(-kz+phi0) * px
+   end
+   return nothing
+end
+
+function track_bcast!(ps6dcoor::AbstractVector{ps6d{T}}, cc::easyCrabCavity, ang, sinang, cosang) where T
    ang .= (-cc.k) .* ps6dcoor.z .+ cc.ϕ
    sinang .= sin.(ang)
    cosang .= cos.(ang)
@@ -67,6 +89,15 @@ mutable struct AccelCavity <: AbstractAccelCavity
 end
 
 function track!(ps6dcoor::AbstractVector{ps6d{T}}, ac::AccelCavity, β2E::Float64, sv) where T
+   v_β2E=ac.v/β2E
+   @inbounds Threads.@threads for i in eachindex(ps6dcoor.x)
+       sv[i] = sin((-ac.k) * ps6dcoor.z[i] + ac.ϕs) - sin(ac.ϕs)
+       ps6dcoor.dp[i] += v_β2E * sv[i]   # update delta p
+   end
+   return nothing
+end
+
+function track_bcast!(ps6dcoor::AbstractVector{ps6d{T}}, ac::AccelCavity, β2E::Float64, sv) where T
    v_β2E=ac.v/β2E
    sv .= sin.((-ac.k) .* ps6dcoor.z .+ ac.ϕs) .- sin(ac.ϕs)
    ps6dcoor.dp .+= v_β2E .* sv   # update delta p
