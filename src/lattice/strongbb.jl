@@ -120,7 +120,7 @@ function Bassetti_Erskine_xgty!(res::AbstractVector, x::Float64, y::Float64, σx
 	complex_e=-1im*2*sqrt(pi)/sqrtδσ2*(term1-termexp*term2)
 	res[1]=real(complex_e)
     res[2]=-imag(complex_e)
-    res[3]=termexp/2.0/π/σx/σy
+    res[3]=termexp
     nothing
 end
 
@@ -141,11 +141,13 @@ function Bassetti_Erskine_ygtx!(res::AbstractVector, x::Float64, y::Float64, σx
 	complex_e=-1im*2*sqrt(pi)/sqrtδσ2*(term1-termexp*term2)
     res[1]=real(complex_e)
     res[2]=-imag(complex_e)
-    res[3]=termexp/2.0/π/σx/σy
+    res[3]=termexp
 	nothing
 end
 
 function Bassetti_Erskine!(res::AbstractVector, x::Float64, y::Float64, σx::Float64, σy::Float64)
+    # return Ex, Ey, Luminosity
+    # Ex-iEy = -i 2 sqrt(pi) / sqrt(2(σx^2-σy^2)) [w((x+iy)/sqrt(2(σx^2-σy^2))) - exp(-x^2/2/σx^2-y^2/2/σy^2) w((xσy/σx+iyσx/σy)/sqrt(2(σx^2-σy^2)))]
     if σx > σy
         Bassetti_Erskine_xgty!(res, x, y, σx, σy)
         nothing
@@ -167,6 +169,8 @@ function track!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5
     alphay=sgb.optics.optics_y.alpha
     gammax=sgb.optics.optics_x.gamma
     gammay=sgb.optics.optics_y.gamma
+    emitx=sgb.beamsize[1]*sgb.beamsize[1]/betax
+    emity=sgb.beamsize[2]*sgb.beamsize[2]/betay
 
     #fieldvec = MVector(0.0, 0.0, 0.0)
     for i in 1:sgb.nzslice
@@ -193,12 +197,12 @@ function track!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5
         
         #slicelumi=Threads.Atomic{Float64}(0.0)
         #slicelumi=0.0
-        @inbounds Threads.@threads for j in eachindex(dist.x)
-            temp1[j] = (dist.z[j] + sgb.zslice_center[i]) / 2.0
-            temp4[j] = betax + gammax * temp1[j] * temp1[j] - 2.0 * alphax * temp1[j]
-            temp5[j] = betay + gammay * temp1[j] * temp1[j] - 2.0 * alphay * temp1[j]
-            temp2[j] = sgb.beamsize[1] * sqrt(temp4[j] / betax)
-            temp3[j] = sgb.beamsize[2] * sqrt(temp5[j] / betay) 
+        @inbounds Threads.@threads :static for j in eachindex(dist.x)
+            temp1[j] = (dist.z[j] + sgb.zslice_center[i]) / 2.0  # collision zlocation
+            temp4[j] = betax + gammax * temp1[j] * temp1[j] - 2.0 * alphax * temp1[j]  # beta x of strong beam at collision point
+            temp5[j] = betay + gammay * temp1[j] * temp1[j] - 2.0 * alphay * temp1[j]   # beta y of strong beam at collision point
+            temp2[j] = sgb.beamsize[1] * sqrt(temp4[j] / betax)    # beamsize x at collision point
+            temp3[j] = sgb.beamsize[2] * sqrt(temp5[j] / betay)    # beamsize y at collision point
 
             dist.x[j] += (dist.px[j] * temp1[j])
             dist.y[j] += (dist.py[j] * temp1[j])
@@ -207,9 +211,19 @@ function track!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5
             Bassetti_Erskine!(fieldvec_thread[Threads.threadid()], dist.x[j]-sgb.xoffsets[i], dist.y[j]-sgb.yoffsets[i], temp2[j], temp3[j])
             dist.px[j] += (sgb.zslice_npar[i]*factor) * fieldvec_thread[Threads.threadid()][1]   #fieldvec[1]
             dist.py[j] += (sgb.zslice_npar[i]*factor) * fieldvec_thread[Threads.threadid()][2]   #fieldvec[2]
+            slicelumi_thread[Threads.threadid()] += fieldvec_thread[Threads.threadid()][3]/2.0/π/temp2[j]/temp3[j]
             #slicelumi += fieldvec[3]
             #Threads.atomic_add!(slicelumi, fieldvec_thread[Threads.threadid()][3])
-            slicelumi_thread[Threads.threadid()] += fieldvec_thread[Threads.threadid()][3]
+            
+            temp4[j] = -((dist.x[j]-sgb.xoffsets[i]) * fieldvec_thread[Threads.threadid()][1] + (dist.y[j]-sgb.yoffsets[i]) * fieldvec_thread[Threads.threadid()][2]) - 2.0 * (1 - temp3[j] * fieldvec_thread[Threads.threadid()][3] / temp2[j])  #  -dEx/dx
+            temp4[j] = temp4[j] / (temp2[j] * temp2[j] - temp3[j] * temp3[j])
+            temp5[j] = ((dist.x[j]-sgb.xoffsets[i]) * fieldvec_thread[Threads.threadid()][1] + (dist.y[j]-sgb.yoffsets[i]) * fieldvec_thread[Threads.threadid()][2])  + 2.0 * (1 - temp2[j] * fieldvec_thread[Threads.threadid()][3] / temp3[j])  #  -dEy/dy
+            temp5[j] = temp5[j] / (temp2[j] * temp2[j] - temp3[j] * temp3[j])
+            
+            dist.dp[j] += sgb.zslice_npar[i] * factor * (temp4[j] * (-gammax * temp1[j] + alphax) * emitx + temp5[j] * (-gammay * temp1[j] + alphay) * emity)/2.0
+
+
+            
 
             dist.x[j] -= (dist.px[j] * temp1[j])
             dist.y[j] -= (dist.py[j] * temp1[j])

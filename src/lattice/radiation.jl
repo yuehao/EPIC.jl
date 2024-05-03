@@ -4,7 +4,7 @@ struct OneTurnRadiation <: AbstractRadiation
     damping_coefs::SVector{3,Float64}
     damping_exp::SVector{3,Float64}
     function OneTurnRadiation(damping_turnx, damping_turny, damping_turnz)
-        damping_turns=SVector{3,Float64}(damping_turnx, damping_turny, damping_turnz)
+        damping_turns=MVector{3,Float64}(damping_turnx, damping_turny, damping_turnz)
         damping_coefs=1.0./damping_turns
         damping_exp=exp.((-1.0).*damping_coefs)
         damping_exp[3] = damping_exp[3] * damping_exp[3] # Special treatment for dp, no damping in z

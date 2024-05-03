@@ -1,4 +1,5 @@
 using Revise, EPIC
+
 using Test
 using BenchmarkTools
 using StructArrays
@@ -142,7 +143,7 @@ get_emittance!(pbeam)
 pbeam.beamsize
 
 opIPe=optics4DUC(0.45, 0.0, 0.056, 0.0)
-estrong=StrongGaussianBeam(ELECTRON, 1.72e11, 10e9,  opIPe, [95e-6, 8.5e-6, 0.007], 1)
+estrong=StrongGaussianBeam(ELECTRON, 1.72e11, 10e9,  opIPe, [95e-6, 8.5e-6, 0.007], 9)
 
 initilize_zslice!(estrong, :gaussian, :evennpar, 10.0)
 #lumi=track!(pbeam, estrong) 
