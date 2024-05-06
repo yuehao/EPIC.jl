@@ -215,9 +215,9 @@ function track!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5
             #slicelumi += fieldvec[3]
             #Threads.atomic_add!(slicelumi, fieldvec_thread[Threads.threadid()][3])
             
-            temp4[j] = -((dist.x[j]-sgb.xoffsets[i]) * fieldvec_thread[Threads.threadid()][1] + (dist.y[j]-sgb.yoffsets[i]) * fieldvec_thread[Threads.threadid()][2]) - 2.0 * (1 - temp3[j] * fieldvec_thread[Threads.threadid()][3] / temp2[j])  #  -dEx/dx
+            temp4[j] = (dist.x[j]-sgb.xoffsets[i]) * fieldvec_thread[Threads.threadid()][1] + (dist.y[j]-sgb.yoffsets[i]) * fieldvec_thread[Threads.threadid()][2] - 2.0 * (1 - temp3[j] * fieldvec_thread[Threads.threadid()][3] / temp2[j])  #  -dEx/dx
             temp4[j] = temp4[j] / (temp2[j] * temp2[j] - temp3[j] * temp3[j])
-            temp5[j] = ((dist.x[j]-sgb.xoffsets[i]) * fieldvec_thread[Threads.threadid()][1] + (dist.y[j]-sgb.yoffsets[i]) * fieldvec_thread[Threads.threadid()][2])  + 2.0 * (1 - temp2[j] * fieldvec_thread[Threads.threadid()][3] / temp3[j])  #  -dEy/dy
+            temp5[j] = -(dist.x[j]-sgb.xoffsets[i]) * fieldvec_thread[Threads.threadid()][1] - (dist.y[j]-sgb.yoffsets[i]) * fieldvec_thread[Threads.threadid()][2]  + 2.0 * (1 - temp2[j] * fieldvec_thread[Threads.threadid()][3] / temp3[j])  #  -dEy/dy
             temp5[j] = temp5[j] / (temp2[j] * temp2[j] - temp3[j] * temp3[j])
             
             dist.dp[j] += sgb.zslice_npar[i] * factor * (temp4[j] * (-gammax * temp1[j] + alphax) * emitx + temp5[j] * (-gammay * temp1[j] + alphay) * emity)/2.0
