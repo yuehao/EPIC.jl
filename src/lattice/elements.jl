@@ -5,5 +5,6 @@ include("lorentz.jl")
 include("transfermap.jl")
 include("wakefield.jl")
 include("strongbb.jl")
+include("spacecharge.jl")
 include("radiation.jl")
 

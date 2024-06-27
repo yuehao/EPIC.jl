@@ -36,6 +36,10 @@ abstract type AbstractLongitudinalMap <:AbstractTransferMap end
 
 abstract type AbstractLorentzBoost <:AbstractElement end
 
+abstract type AbstractStrongBeamBeam <:AbstractElement end
+
+abstract type AbstractSpaceCharge <:AbstractElement end
+
 
 ## Lattice
 

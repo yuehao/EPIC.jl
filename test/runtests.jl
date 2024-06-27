@@ -212,6 +212,36 @@ plot(ebeam.dist.z, ebeam.dist.dp.-old_dp, markersize=1, seriestype=:scatter, leg
 # end
 
 
+# test space charge
+
+pbeam=BunchedBeam(PROTON, 0.688e11, 275e9,  100000, [11.3e-9, 1e-9, 3.75e-2])
+opIPp=optics4DUC(0.8, 0.0, 0.072, 0.0)
+mainRF=AccelCavity(591e6, 15.8e6, 7560.0, π)
+αc=1.5e-3
+lmap=LongitudinalRFMap(αc, mainRF)
+initilize_6DGaussiandist!(pbeam, opIPp, lmap)
+get_emittance!(pbeam)
+pxcopy=pbeam.dist.px.*1.0
+pycopy=pbeam.dist.py.*1.0
+tunex, tuney=28.228, 29.21
+OTmap=TransferMap4DChrom(opIPp, tunex, tuney, 1.0, 1.0)
+
+opSCIP1=optics4DUC(10.0, 0.0, 10.0, 0.0)
+tSC1map=TransferMap4D(opIPp, opSCIP1, tunex/2.0, tuney/2.0)
+tSC1mapinv=TransferMap4D(opSCIP1, opIPp, -tunex/2.0, -tuney/2.0)
+
+sc1=SpaceChargeLens(opSCIP1, 2000)
+
+begin
+    #track!(pbeam, OTmap)
+    #track!(pbeam, tSC1map)
+    track!(pbeam, sc1)
+    #track!(pbeam, tSC1mapinv)
+end
+plot(pbeam.dist.y, pbeam.dist.py.-pycopy, seriestype=:scatter, markersize=1, legend=false, xlabel="x [m]", ylabel="dp/p" )
+
+
+
 
 @testset "EPIC.jl" begin
     # Write your tests here.

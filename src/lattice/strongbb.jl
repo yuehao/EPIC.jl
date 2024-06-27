@@ -1,4 +1,4 @@
-abstract type AbstractStrongBeamBeam <:AbstractElement end
+
 using SpecialFunctions
 using Statistics
 using StaticArrays
@@ -198,6 +198,79 @@ function track!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5
         #slicelumi=Threads.Atomic{Float64}(0.0)
         #slicelumi=0.0
         @inbounds Threads.@threads :static for j in eachindex(dist.x)
+            temp1[j] = (dist.z[j] + sgb.zslice_center[i]) / 2.0  # collision zlocation
+            temp4[j] = betax + gammax * temp1[j] * temp1[j] - 2.0 * alphax * temp1[j]  # beta x of strong beam at collision point
+            temp5[j] = betay + gammay * temp1[j] * temp1[j] - 2.0 * alphay * temp1[j]   # beta y of strong beam at collision point
+            temp2[j] = sgb.beamsize[1] * sqrt(temp4[j] / betax)    # beamsize x at collision point
+            temp3[j] = sgb.beamsize[2] * sqrt(temp5[j] / betay)    # beamsize y at collision point
+
+            dist.x[j] += (dist.px[j] * temp1[j])
+            dist.y[j] += (dist.py[j] * temp1[j])
+            dist.dp[j] -= (dist.px[j] * dist.px[j] + dist.py[j] * dist.py[j]) / 4.0
+            
+            Bassetti_Erskine!(fieldvec_thread[Threads.threadid()], dist.x[j]-sgb.xoffsets[i], dist.y[j]-sgb.yoffsets[i], temp2[j], temp3[j])
+            dist.px[j] += (sgb.zslice_npar[i]*factor) * fieldvec_thread[Threads.threadid()][1]   #fieldvec[1]
+            dist.py[j] += (sgb.zslice_npar[i]*factor) * fieldvec_thread[Threads.threadid()][2]   #fieldvec[2]
+            slicelumi_thread[Threads.threadid()] += fieldvec_thread[Threads.threadid()][3]/2.0/π/temp2[j]/temp3[j]
+            #slicelumi += fieldvec[3]
+            #Threads.atomic_add!(slicelumi, fieldvec_thread[Threads.threadid()][3])
+            
+            temp4[j] = (dist.x[j]-sgb.xoffsets[i]) * fieldvec_thread[Threads.threadid()][1] + (dist.y[j]-sgb.yoffsets[i]) * fieldvec_thread[Threads.threadid()][2] - 2.0 * (1 - temp3[j] * fieldvec_thread[Threads.threadid()][3] / temp2[j])  #  -dEx/dx
+            temp4[j] = temp4[j] / (temp2[j] * temp2[j] - temp3[j] * temp3[j])
+            temp5[j] = -(dist.x[j]-sgb.xoffsets[i]) * fieldvec_thread[Threads.threadid()][1] - (dist.y[j]-sgb.yoffsets[i]) * fieldvec_thread[Threads.threadid()][2]  + 2.0 * (1 - temp2[j] * fieldvec_thread[Threads.threadid()][3] / temp3[j])  #  -dEy/dy
+            temp5[j] = temp5[j] / (temp2[j] * temp2[j] - temp3[j] * temp3[j])
+            
+            dist.dp[j] += sgb.zslice_npar[i] * factor * (temp4[j] * (-gammax * temp1[j] + alphax) * emitx + temp5[j] * (-gammay * temp1[j] + alphay) * emity)/2.0
+
+
+            
+
+            dist.x[j] -= (dist.px[j] * temp1[j])
+            dist.y[j] -= (dist.py[j] * temp1[j])
+            dist.dp[j] += (dist.px[j] * dist.px[j] + dist.py[j] * dist.py[j]) / 4.0
+        end
+        
+       
+        lumi += sum(slicelumi_thread) * sgb.zslice_npar[i] #  Will do it outside* wb.num_particle / wb.num_macro
+        
+        # @inbounds Threads.@threads for j in eachindex(dist.x)
+        #    
+        # end
+
+        # dist.x .-= (dist.px .* temp1)
+        # dist.y .-= (dist.py .* temp1)
+        # dist.dp .+= (dist.px .* dist.px .+ dist.py .* dist.py) ./ 4.0
+
+        
+
+    end
+    return lumi
+
+end
+
+function track_single!(dist::AbstractVector{ps6d{T}}, temp1, temp2, temp3, temp4, temp5, sgb::StrongGaussianBeam, factor::Float64) where T
+    #factor=wb.particle.classrad0/wb.gamma*wb.particle.charge*sgb.particle.charge
+    
+    lumi=0.0
+    betax=sgb.optics.optics_x.beta
+    betay=sgb.optics.optics_y.beta
+    alphax=sgb.optics.optics_x.alpha
+    alphay=sgb.optics.optics_y.alpha
+    gammax=sgb.optics.optics_x.gamma
+    gammay=sgb.optics.optics_y.gamma
+    emitx=sgb.beamsize[1]*sgb.beamsize[1]/betax
+    emity=sgb.beamsize[2]*sgb.beamsize[2]/betay
+
+    #fieldvec = MVector(0.0, 0.0, 0.0)
+    for i in 1:sgb.nzslice
+        # temp1: collision zlocation, temp2: beamsize x, temp3: beamsize y, temp4: beta x, temp5: beta y
+
+        fieldvec = MVector{3}(0.0, 0.0, 0.0)
+        slicelumi = 0.0
+
+        
+        #slicelumi=0.0
+        @inbounds for j in eachindex(dist.x)
             temp1[j] = (dist.z[j] + sgb.zslice_center[i]) / 2.0  # collision zlocation
             temp4[j] = betax + gammax * temp1[j] * temp1[j] - 2.0 * alphax * temp1[j]  # beta x of strong beam at collision point
             temp5[j] = betay + gammay * temp1[j] * temp1[j] - 2.0 * alphay * temp1[j]   # beta y of strong beam at collision point
